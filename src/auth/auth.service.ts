@@ -1,4 +1,4 @@
-import { Body, Injectable } from '@nestjs/common';
+import { Body, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthDto } from './dto';
 import * as argon2 from 'argon2';
@@ -22,11 +22,28 @@ export class AuthService {
     });
     const tokens = await this.getTokens(newUser.id, newUser.email)
     await this.updateRefreshTokenHash(newUser.id, tokens.refresh_token)
-
     return tokens;
   }
 
-  signInLocal() { }
+  async signInLocal(dto: AuthDto): Promise<Tokens> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email }
+    });
+
+    if (!user) {
+      throw new ForbiddenException('Access Denied');
+    }
+
+    const passwordMatches = await argon2.verify(user.hash, dto.password);
+    if (!passwordMatches) {
+      throw new ForbiddenException('Access Denied')
+    }
+
+    const tokens = await this.getTokens(user.id, user.email)
+    await this.updateRefreshTokenHash(user.id, tokens.refresh_token)
+    return tokens;
+  }
+
   logout() { }
   refreshToken() { }
 
@@ -42,8 +59,8 @@ export class AuthService {
     });
   }
 
-  hashData(data: string) {
-    return argon2.hash(data);
+  async hashData(data: string) {
+    return await argon2.hash(data);
   }
 
   async getTokens(userId: number, email: string): Promise<Tokens> {

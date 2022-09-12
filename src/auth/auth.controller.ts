@@ -13,8 +13,8 @@ export class AuthController {
   }
 
   @Post('local/signin')
-  signInLocal() {
-    return this.authService.signInLocal();
+  signInLocal(@Body() dto: AuthDto): Promise<Tokens> {
+    return this.authService.signInLocal(dto);
   }
 
   @Post('/logout')
